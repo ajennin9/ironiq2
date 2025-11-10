@@ -18,6 +18,11 @@
       "infoPlist": {
         "NFCReaderUsageDescription": "IronIQ needs NFC access to read workout data from gym equipment.",
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.nfc.readersession.formats": [
+          "NDEF"
+        ]
       }
     },
     "android": {
@@ -36,6 +41,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "react-native-nfc-manager",
+        {
+          "ios": {
+            "alertMessage": "Hold near the gym device"
+          }
+        }
+      ],
       "expo-router"
     ],
     "extra": {

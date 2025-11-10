@@ -1,23 +1,5 @@
-import { Platform } from 'react-native';
+import NfcManager, { NfcTech, Ndef, NfcEvents } from 'react-native-nfc-manager';
 import { CompactNFCPayload } from '@/types/workout';
-
-// Conditional imports for NFC (only on native platforms)
-let NfcManager: any = null;
-let NfcTech: any = null;
-let Ndef: any = null;
-let NfcEvents: any = null;
-
-if (Platform.OS !== 'web') {
-  try {
-    const nfcModule = require('react-native-nfc-manager');
-    NfcManager = nfcModule.default;
-    NfcTech = nfcModule.NfcTech;
-    Ndef = nfcModule.Ndef;
-    NfcEvents = nfcModule.NfcEvents;
-  } catch (error) {
-    console.warn('react-native-nfc-manager not available:', error);
-  }
-}
 
 export class NFCService {
   private static instance: NFCService;
@@ -31,13 +13,10 @@ export class NFCService {
   }
 
   async initialize(): Promise<boolean> {
-    if (Platform.OS === 'web' || !NfcManager) {
-      console.log('NFC not available on web platform');
-      return false;
-    }
-
     try {
       const supported = await NfcManager.isSupported();
+      console.log('NFC isSupported result:', supported);
+
       if (!supported) {
         console.log('NFC not supported on this device');
         return false;
@@ -54,12 +33,10 @@ export class NFCService {
   }
 
   async isEnabled(): Promise<boolean> {
-    if (Platform.OS === 'web' || !NfcManager) {
-      return false;
-    }
-    
     try {
-      return await NfcManager.isEnabled();
+      const enabled = await NfcManager.isEnabled();
+      console.log('NFC isEnabled result:', enabled);
+      return enabled;
     } catch (error) {
       console.error('Failed to check NFC status:', error);
       return false;
@@ -67,10 +44,6 @@ export class NFCService {
   }
 
   async readTag(): Promise<CompactNFCPayload> {
-    if (Platform.OS === 'web' || !NfcManager) {
-      throw new Error('NFC not available on web platform');
-    }
-
     if (!this.isInitialized) {
       throw new Error('NFC Manager not initialized');
     }
@@ -120,12 +93,15 @@ export class NFCService {
 
   private async readNDEFTag(): Promise<CompactNFCPayload> {
     try {
-      // Request NFC technology
+      // Request NFC technology (plugin handles iOS configuration)
+      console.log('Requesting NFC technology...');
       await NfcManager.requestTechnology(NfcTech.Ndef);
-      
-      // Read NDEF message
+      console.log('NFC technology request successful, waiting for tag...');
+
+      // On iOS, we need to register for tag events and wait
+      // The tag will be detected automatically when user taps
       const tag = await NfcManager.getTag();
-      console.log('NFC Tag detected:', tag);
+      console.log('NFC Tag detected - FULL RAW DATA:', JSON.stringify(tag, null, 2));
 
       if (!tag?.ndefMessage || tag.ndefMessage.length === 0) {
         throw new Error('No NDEF data found on tag');
