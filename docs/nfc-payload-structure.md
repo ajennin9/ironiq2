@@ -85,4 +85,72 @@ Array of recent sessions, each containing:
 
 **The device handles ID rotation automatically on every tap:**
 
-### Before
+### Before Tap
+```json
+{
+  "m": "1234",
+  "t": "bicep",
+  "a": "Tay8gs",
+  "s": []
+}
+```
+
+### After Tap (Tap-In)
+```json
+{
+  "m": "1234",
+  "t": "bicep",
+  "a": "newID123",
+  "s": [
+    ["b", "Tay8gs", []]
+  ]
+}
+```
+
+**What happened:**
+1. The `a` field rotated to a new session ID (`"newID123"`)
+2. The previous `a` value (`"Tay8gs"`) became an active session with role `"b"`
+3. The app saves `"Tay8gs"` as the session ID for this workout
+
+### After Tap-Out (Completing Workout)
+```json
+{
+  "m": "1234",
+  "t": "bicep",
+  "a": "newID123",
+  "s": [
+    ["c", "Tay8gs", [[60, 8], [55, 10]]],
+  ]
+}
+```
+
+**What happened:**
+1. The active session (`"b"`) changed to completed (`"c"`)
+2. The device recorded the sets performed during the workout
+3. The `a` field stays the same (ready for next user)
+
+### Multiple Sessions Example
+```json
+{
+  "m": "1234",
+  "t": "bicep",
+  "a": "abc123",
+  "s": [
+    ["b", "newID123", [[65, 6]]],
+    ["c", "Tay8gs", [[60, 8], [55, 10]]],
+    ["d", "nja8op", [[50, 12]]]
+  ]
+}
+```
+
+**Session history shows:**
+- Active workout in progress (`"b"`) with 1 set completed
+- Last completed workout (`"c"`) with 2 sets
+- Older completed workout (`"d"`) with 1 set
+
+## Workflow Summary
+
+1. **Tap-In**: App reads NFC tag, saves the `a` field as session ID, device rotates to new active session
+2. **During Workout**: Device records sets automatically (weight/reps tracked by equipment)
+3. **Tap-Out**: App reads NFC tag again, looks for matching session ID in `s` array to retrieve workout data
+4. **Session Matching**: The session ID saved at tap-in matches the session in the `s` array at tap-out
