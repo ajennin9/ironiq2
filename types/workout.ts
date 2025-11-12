@@ -50,6 +50,14 @@ export interface MachineHistory {
   totalSessions: number;
 }
 
+// Active session (stored in AsyncStorage during workout)
+export interface ActiveSession {
+  sessionId: string;      // From NFC payload.a
+  machineId: string;      // From NFC payload.m
+  machineType: string;    // From NFC payload.t
+  startedAt: string;      // ISO timestamp
+}
+
 // NFC Payloads
 // Compact NFC payload format (size-optimized)
 export interface CompactNFCPayload {
