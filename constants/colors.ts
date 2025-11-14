@@ -2,24 +2,29 @@
 // Based on design mockups
 
 export default {
-  // Primary (Purple/Indigo - Logo, main actions)
-  primary: '#5B57E0',        // Purple from logo and primary buttons
-  primaryDark: '#4338CA',
-  primaryLight: '#8B85FF',
+  // Primary (Purple - Main accent)
+  primary: '#A79AFF',        // Purple for primary actions and accents
+  primaryDark: '#8B7DE8',
+  primaryLight: '#C4B9FF',
 
   // Accent colors
   green: '#10B981',          // Success, active sessions
-  orange: '#FF6B35',         // Primary CTAs, warnings
+  orange: '#FF6B35',         // Warnings
   blue: '#3B82F6',           // Info, links
   red: '#EF4444',            // Errors, danger actions
 
-  // Neutrals
-  background: '#F9FAFB',     // App background
-  surface: '#FFFFFF',        // Cards, containers
-  text: '#111827',           // Primary text
-  textSecondary: '#6B7280',  // Secondary text
+  // Neutrals (Light theme)
+  background: '#F7F6F9',     // App background (light gray)
+  surface: '#FEFEFF',        // Cards, containers (white)
+  text: '#121416',           // Primary text (black)
+  textSecondary: '#6B7280',  // Secondary text (medium gray)
   textLight: '#9CA3AF',      // Placeholders, disabled
   border: '#E5E7EB',         // Borders, dividers
+
+  // Navigation
+  navBackground: '#121416',  // Black navigation pill background
+  navInactive: '#2C2D2E',    // Medium gray for inactive tab
+  navIconInactive: '#6E6E6E', // Light gray for inactive icon
 
   // Semantic
   success: '#10B981',
