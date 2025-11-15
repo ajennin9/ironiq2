@@ -51,11 +51,11 @@ export class NFCService {
     // Retry logic for intermittent NFC read failures
     const maxRetries = 3;
     const retryDelay = 500; // 500ms between retries
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`NFC read attempt ${attempt}/${maxRetries}`);
-        
+
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('NFC read timeout')), 10000); // 10 second timeout
@@ -67,26 +67,49 @@ export class NFCService {
         console.log(`NFC read successful on attempt ${attempt}`);
         return payload;
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(`NFC read attempt ${attempt} failed:`, error);
-        
+
+        // Check if user cancelled - if so, don't retry
+        const errorMessage = error?.message?.toLowerCase() || '';
+        const errorString = error?.toString()?.toLowerCase() || '';
+        const errorConstructor = error?.constructor?.name?.toLowerCase() || '';
+
+        // User cancelled if:
+        // 1. Error constructor is UserCancel
+        // 2. Message includes cancelled/invalidated
+        // 3. Error string includes cancelled/invalidated
+        // 4. It's an empty error object (no message, no keys)
+        const isCancelled =
+          errorConstructor.includes('usercancel') ||
+          errorMessage.includes('cancelled') ||
+          errorMessage.includes('invalidated') ||
+          errorString.includes('cancelled') ||
+          errorString.includes('invalidated') ||
+          (error && !error.message && error.toString() === 'Error');
+
+        if (isCancelled) {
+          console.log('User cancelled NFC scan, not retrying');
+          throw error;
+        }
+
         // Ensure cleanup
         try {
           await NfcManager.cancelTechnologyRequest();
         } catch (cleanupError) {
           console.log('Cleanup error:', cleanupError);
         }
-        
+
         // If this was the last attempt, throw the error
         if (attempt === maxRetries) {
           throw error;
         }
-        
+
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
-    
+
     // This should never be reached due to the throw in the loop
     throw new Error('NFC read failed after all retry attempts');
   }

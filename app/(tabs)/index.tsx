@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Image, Animated } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@/components/Button';
 import Colors from '@/constants/colors';
+import Fonts from '@/constants/fonts';
 import { nfcService } from '@/services/nfc';
 import { workoutService } from '@/services/workout';
 import { useWorkoutStore } from '@/stores/workout';
@@ -13,14 +14,55 @@ export default function HomeScreen() {
   const router = useRouter();
   const [isScanning, setIsScanning] = useState(false);
   const [nfcAvailable, setNfcAvailable] = useState(false);
+  const [scanningDots, setScanningDots] = useState('');
   const activeSession = useWorkoutStore(state => state.activeSession);
   const initialize = useWorkoutStore(state => state.initialize);
+
+  // Animation for glow effect
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
   // Initialize NFC and workout store on mount
   useEffect(() => {
     initializeNFC();
     initialize();
   }, []);
+
+  // Pulse animation for the dumbbell button
+  useEffect(() => {
+    if (!activeSession) {
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseAnimation.start();
+      return () => pulseAnimation.stop();
+    }
+  }, [activeSession]);
+
+  // Animated dots for scanning screen
+  useEffect(() => {
+    if (isScanning) {
+      const interval = setInterval(() => {
+        setScanningDots(prev => {
+          if (prev === '...') return '';
+          return prev + '.';
+        });
+      }, 500);
+      return () => clearInterval(interval);
+    } else {
+      setScanningDots('');
+    }
+  }, [isScanning]);
 
   const initializeNFC = async () => {
     const initialized = await nfcService.initialize();
@@ -85,7 +127,15 @@ export default function HomeScreen() {
       }
     } catch (error: any) {
       // Don't show alert for user cancellation
-      if (!error.message?.includes('cancelled') && !error.message?.includes('invalidated')) {
+      const errorMessage = error?.message?.toLowerCase() || '';
+      const errorConstructor = error?.constructor?.name?.toLowerCase() || '';
+
+      const isCancelled =
+        errorConstructor.includes('usercancel') ||
+        errorMessage.includes('cancelled') ||
+        errorMessage.includes('invalidated');
+
+      if (!isCancelled) {
         Alert.alert('Error', error.message || 'An error occurred');
       }
     } finally {
@@ -116,10 +166,22 @@ export default function HomeScreen() {
       {/* Main Content */}
       <ScrollView
         style={styles.content}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isScanning && styles.scrollContentTop
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        {activeSession ? (
+        {isScanning ? (
+          // Scanning state
+          <View style={styles.scanningContainer}>
+            <Text style={styles.scanningTitle}>Scanning{scanningDots}</Text>
+
+            <Text style={styles.scanningInstruction}>
+              Tap your phone to the{'\n'}machine to start your{'\n'}workout.
+            </Text>
+          </View>
+        ) : activeSession ? (
           // Active session state (keep existing for now)
           <>
             <Text style={styles.text}>Workout In Progress</Text>
@@ -142,44 +204,87 @@ export default function HomeScreen() {
             />
           </>
         ) : (
-          // Ready to start state - NEW DESIGN (with duplicate for scrolling test)
+          // Ready to start state - NEW DESIGN
           <>
             <View style={styles.welcomeCard}>
               <Text style={styles.welcomeTitle}>Welcome Back!</Text>
               <Text style={styles.welcomeSubtitle}>It's workout time.</Text>
 
-              <TouchableOpacity
-                style={styles.barbellButton}
-                onPress={handleScan}
-                disabled={isScanning || !nfcAvailable}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="barbell" size={80} color={Colors.surface} />
-              </TouchableOpacity>
+              <View style={styles.buttonContainer}>
+                {/* Animated glow rings */}
+                <Animated.View
+                  style={[
+                    styles.glowRing,
+                    {
+                      opacity: glowAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.3, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: glowAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.3],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.glowRing,
+                    styles.glowRingSecondary,
+                    {
+                      opacity: glowAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.2, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: glowAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [1, 1.5],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+
+                <TouchableOpacity
+                  style={styles.barbellButton}
+                  onPress={handleScan}
+                  disabled={isScanning || !nfcAvailable}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={require('@/assets/icons/dumbell.png')}
+                    style={styles.dumbbellIcon}
+                  />
+                </TouchableOpacity>
+              </View>
 
               <Text style={styles.instructionText}>
                 Tap to start your workout{'\n'}at the first machine.
               </Text>
             </View>
 
-            {/* Duplicate card for testing scrollable content */}
-            <View style={[styles.welcomeCard, styles.duplicateCard]}>
-              <Text style={styles.welcomeTitle}>Welcome Back!</Text>
-              <Text style={styles.welcomeSubtitle}>It's workout time.</Text>
-
-              <TouchableOpacity
-                style={styles.barbellButton}
-                onPress={handleScan}
-                disabled={isScanning || !nfcAvailable}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="barbell" size={80} color={Colors.surface} />
-              </TouchableOpacity>
-
-              <Text style={styles.instructionText}>
-                Tap to start your workout{'\n'}at the first machine.
-              </Text>
-            </View>
+            <TouchableOpacity
+              style={styles.manualEntryButton}
+              onPress={() => router.push('/manual-entry')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.manualEntryContent}>
+                <View style={styles.manualEntryTextContainer}>
+                  <Text style={styles.manualEntryTitle}>Manual Entry</Text>
+                  <Text style={styles.manualEntrySubtitle}>
+                    Record an exercise that doesn't{'\n'}use a smart machine.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={Colors.text} />
+              </View>
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -203,7 +308,7 @@ const styles = StyleSheet.create({
   },
   appTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: Colors.text,
   },
   profileButton: {
@@ -218,29 +323,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexGrow: 1,
   },
+  scrollContentTop: {
+    justifyContent: 'flex-start',
+  },
+  // SCANNING STATE
+  scanningContainer: {
+    alignItems: 'center',
+    paddingTop: 32,
+  },
+  scanningTitle: {
+    fontSize: 48,
+    fontFamily: Fonts.bold,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  scanningInstruction: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.text,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
   // NEW DESIGN - Welcome state
   welcomeCard: {
     backgroundColor: Colors.surface,
     borderRadius: 24,
     padding: 40,
     alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  duplicateCard: {
-    marginTop: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 1,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   welcomeTitle: {
     fontSize: 48,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: Colors.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   welcomeSubtitle: {
     fontSize: 20,
+    fontFamily: Fonts.regular,
     color: Colors.text,
     textAlign: 'center',
     marginBottom: 40,
+  },
+  buttonContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+  },
+  glowRing: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: Colors.primary,
+  },
+  glowRingSecondary: {
+    // Secondary ring uses same base styles as glowRing
   },
   barbellButton: {
     width: 160,
@@ -249,7 +397,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -259,21 +406,62 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  dumbbellIcon: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
+  },
   instructionText: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: Colors.text,
     textAlign: 'center',
     lineHeight: 24,
   },
+  manualEntryButton: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 1,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  manualEntryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  manualEntryTextContainer: {
+    flex: 1,
+  },
+  manualEntryTitle: {
+    fontSize: 18,
+    fontFamily: Fonts.bold,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  manualEntrySubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    color: Colors.textSecondary,
+    lineHeight: 20,
+  },
   // EXISTING DESIGN - Active session state
   text: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: Colors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: Colors.textSecondary,
     marginBottom: 24,
     textAlign: 'center',
@@ -291,13 +479,14 @@ const styles = StyleSheet.create({
   },
   machineType: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: Colors.primary,
     marginBottom: 12,
     textTransform: 'capitalize',
   },
   sessionDetail: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: Colors.textSecondary,
     marginBottom: 4,
   },
