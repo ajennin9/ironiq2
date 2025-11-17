@@ -120,35 +120,41 @@ users/
       {sessionId}/
         - sessionId: string (6-char base36)
         - userId: string
-        - workoutId: string | null (for grouping)
+        - workoutId: string (optional - links to parent workout)
         - machineId: string
         - machineType: string
         - startedAt: timestamp
         - endedAt: timestamp
         - duration: number (seconds)
         - sets: Array<{ weightLbs: number, reps: number }>
-        - createdAt: timestamp
 
-workouts/ (Post-MVP)
-  {workoutId}/
-    - workoutId: string
-    - userId: string
-    - name: string
-    - startedAt: timestamp
-    - endedAt: timestamp
-    - exerciseSessions: string[] (session IDs)
-    - totalVolume: number
-    - totalSets: number
-    - totalDuration: number
+    workouts/
+      {workoutId}/
+        - workoutId: string
+        - userId: string
+        - startedAt: timestamp
+        - endedAt: timestamp (optional - set when workout is completed)
+        - status: 'in-progress' | 'completed'
 ```
 
 **Indexes (Firestore):**
 ```
 exerciseSessions:
-  - userId + createdAt (desc)
-  - userId + machineId + createdAt (desc)
-  - userId + machineType + createdAt (desc)
+  - machineId + startedAt (desc)
+  - machineType + startedAt (desc)
+  - workoutId + startedAt (asc)
 ```
+
+Note: Since exerciseSessions and workouts are subcollections under `users/{userId}/`, the userId is implicit in the collection path and doesn't need to be part of the composite index.
+
+**Workout Flow:**
+1. User taps in on first exercise → Creates active session
+2. User taps out → Creates workout document (if first exercise) + saves exercise session with workoutId
+3. Continue workout state shows with list of completed exercises
+4. User taps in on next exercise → Creates new active session
+5. User taps out → Saves exercise session with same workoutId
+6. Repeat steps 4-5 for additional exercises
+7. User completes workout → Updates workout status to 'completed'
 
 ---
 

@@ -17,7 +17,7 @@ export interface Set {
 export interface ExerciseSession {
   sessionId: string;
   userId: string;
-  workoutId: string;
+  workoutId?: string; // Optional: Links this exercise to a workout
   machineId: string;
   machineType: string;
   startedAt: string;
@@ -30,14 +30,9 @@ export interface ExerciseSession {
 export interface Workout {
   workoutId: string;
   userId: string;
-  name: string; // Default: "MM/DD/YYYY Workout"
   startedAt: string;
   endedAt?: string;
-  notes?: string;
-  exerciseSessions: ExerciseSession[]; // Denormalized for fast display
-  totalVolume: number; // kg
-  totalSets: number;
-  totalDuration: number; // minutes
+  status: 'in-progress' | 'completed';
 }
 
 // Machine history for "last workout on this machine" feature
