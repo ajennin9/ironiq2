@@ -203,6 +203,26 @@ export default function HomeScreen() {
     return `${minutes}m ${seconds}s`;
   };
 
+  const formatRelativeTime = (dateString: string) => {
+    const now = Date.now();
+    const date = new Date(dateString).getTime();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    const diffInMonths = Math.floor(diffInDays / 30);
+    const diffInYears = Math.floor(diffInDays / 365);
+
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
+    if (diffInWeeks < 4) return `${diffInWeeks} week${diffInWeeks === 1 ? '' : 's'} ago`;
+    if (diffInMonths < 12) return `${diffInMonths} month${diffInMonths === 1 ? '' : 's'} ago`;
+    return `${diffInYears} year${diffInYears === 1 ? '' : 's'} ago`;
+  };
+
   const formatExerciseDuration = (startedAt: string, endedAt: string) => {
     const start = new Date(startedAt);
     const end = new Date(endedAt);
@@ -260,64 +280,56 @@ export default function HomeScreen() {
         ) : activeSession ? (
           // Active exercise state - showing current exercise in progress
           <View style={styles.exerciseInProgressContainer}>
-            {/* Debug: Session ID */}
-            <Text style={styles.debugSessionId}>Session ID: {activeSession.sessionId}</Text>
-
-            {/* Top button - tappable to complete workout */}
-            <TouchableOpacity
-              style={styles.completeWorkoutButton}
-              onPress={handleScan}
-              disabled={isScanning || !nfcAvailable}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.completeWorkoutText}>
-                Tap to complete workout
-              </Text>
-              <Ionicons name="checkmark-circle" size={32} color={Colors.text} />
-            </TouchableOpacity>
-
             {/* Exercise in progress title */}
             <Text style={styles.exerciseInProgressTitle}>
               Exercise in progress{progressDots}
             </Text>
 
-            {/* Machine name */}
-            <Text style={styles.machineNameLarge}>{activeSession.machineType}</Text>
+            {/* Active exercise card - tappable to complete exercise */}
+            <TouchableOpacity
+              style={styles.activeExerciseCard}
+              onPress={handleScan}
+              disabled={isScanning || !nfcAvailable}
+              activeOpacity={0.7}
+            >
+              <View style={styles.activeExerciseContent}>
+                <View style={styles.activeExerciseTextContainer}>
+                  <Text style={styles.activeExerciseTitle}>{activeSession.machineType}</Text>
+                  <Text style={styles.activeExerciseSubtitle}>Tap to complete exercise</Text>
+                </View>
+                <View style={styles.activeExerciseIconContainer}>
+                  <Ionicons name="barbell" size={32} color={Colors.surface} />
+                </View>
+              </View>
+            </TouchableOpacity>
 
             {/* Conditional: First-time vs Returning user */}
             {previousWorkout ? (
               // Returning user - show most recent workout
               <View style={styles.recentWorkoutCard}>
-                <Text style={styles.recentWorkoutLabel}>Most Recent Workout</Text>
-
-                <View style={styles.workoutStatsRow}>
-                  <View style={styles.workoutStat}>
-                    <Text style={styles.workoutStatValue}>{previousWorkout.sets.length}</Text>
-                    <Text style={styles.workoutStatLabel}>Sets</Text>
+                <View style={styles.recentWorkoutHeader}>
+                  <View style={styles.recentWorkoutTitleContainer}>
+                    <Text style={styles.recentWorkoutTitle}>Most Recent Workout</Text>
+                    <Text style={styles.recentWorkoutExerciseName}>{previousWorkout.machineType}</Text>
                   </View>
-
-                  <View style={styles.workoutStat}>
-                    <Text style={styles.workoutStatValue}>
-                      {previousWorkout.sets.reduce((total: number, set: any) => total + set.reps, 0)}
+                  <View style={styles.recentWorkoutTimeContainer}>
+                    <Ionicons name="time-outline" size={35} color={Colors.gold} />
+                    <Text style={styles.recentWorkoutTime}>
+                      {formatRelativeTime(previousWorkout.endedAt)}
                     </Text>
-                    <Text style={styles.workoutStatLabel}>Total Reps</Text>
-                  </View>
-
-                  <View style={styles.workoutStat}>
-                    <Text style={styles.workoutStatValue}>
-                      {Math.max(...previousWorkout.sets.map((set: any) => set.weightLbs))} lbs
-                    </Text>
-                    <Text style={styles.workoutStatLabel}>Max Weight</Text>
                   </View>
                 </View>
 
-                <Text style={styles.workoutDate}>
-                  {new Date(previousWorkout.endedAt).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </Text>
+                <View style={styles.recentWorkoutSets}>
+                  {previousWorkout.sets.map((set: any, index: number) => (
+                    <View key={index} style={styles.recentWorkoutSetRow}>
+                      <Text style={styles.recentWorkoutSetLabel}>Set {index + 1}</Text>
+                      <Text style={styles.recentWorkoutSetValue}>
+                        {set.reps} reps x {set.weightLbs} lbs
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             ) : (
               // First-time user - show star icon and message
@@ -716,58 +728,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  debugSessionId: {
-    fontSize: 10,
-    fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  completeWorkoutButton: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#FFD700',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 1,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  completeWorkoutText: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: Colors.text,
-  },
   exerciseInProgressTitle: {
     fontSize: 16,
     fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
-    marginBottom: 8,
-  },
-  machineNameLarge: {
-    fontSize: 48,
-    fontFamily: Fonts.bold,
     color: Colors.text,
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: 32,
-    textTransform: 'capitalize',
   },
-  recentWorkoutCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 24,
+  activeExerciseCard: {
+    backgroundColor: Colors.text, // Black background
+    borderRadius: 100,
+    borderWidth: 3,
+    borderColor: Colors.gold,
+    height: 75,
     width: '100%',
-    alignItems: 'center',
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 1,
@@ -777,13 +752,99 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  recentWorkoutLabel: {
+  activeExerciseContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  activeExerciseTextContainer: {
+    flex: 1,
+    paddingLeft: 16,
+    justifyContent: 'center',
+  },
+  activeExerciseTitle: {
+    fontSize: 24,
+    fontFamily: Fonts.bold,
+    color: Colors.gold,
+    textTransform: 'capitalize',
+  },
+  activeExerciseSubtitle: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.navIconInactive,
+  },
+  activeExerciseIconContainer: {
+    width: 59,
+    height: 59,
+    borderRadius: 100,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentWorkoutCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 24,
+    padding: 16,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  recentWorkoutHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  recentWorkoutTitleContainer: {
+    flex: 1,
+  },
+  recentWorkoutTitle: {
+    fontSize: 24,
+    fontFamily: Fonts.regular,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  recentWorkoutExerciseName: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.text,
+  },
+  recentWorkoutTimeContainer: {
+    alignItems: 'flex-end',
+  },
+  recentWorkoutTime: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.navIconInactive,
+    textAlign: 'right',
+  },
+  recentWorkoutSets: {
+    width: '100%',
+  },
+  recentWorkoutSetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  recentWorkoutSetLabel: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.text,
+  },
+  recentWorkoutSetValue: {
     fontSize: 14,
     fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
-    marginBottom: 20,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    color: Colors.navIconInactive,
   },
   workoutStatsRow: {
     flexDirection: 'row',
@@ -802,11 +863,6 @@ const styles = StyleSheet.create({
   },
   workoutStatLabel: {
     fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
-  },
-  workoutDate: {
-    fontSize: 14,
     fontFamily: Fonts.regular,
     color: Colors.textSecondary,
   },

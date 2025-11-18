@@ -2,8 +2,8 @@
 
 ## Project Status
 
-**Current Phase:** Phase 2 Complete ✅
-**Next Phase:** Phase 3 (Core Workout Flow)
+**Current Phase:** Phase 3 Complete ✅
+**Next Phase:** Phase 4 (Edit & Finish Workflows)
 **Target:** MVP Release
 
 ---
@@ -38,34 +38,43 @@
 
 **Key Achievement:** Fixed iOS NFC initialization by adding the plugin to app.json
 
+### ✅ Phase 3: Core Workout Flow (Complete)
+**Goal:** Implement complete tap-in/tap-out workout tracking
+
+**Components Built:**
+- [x] Active session store (Zustand + AsyncStorage)
+- [x] Workout service (session management logic)
+- [x] Updated home screen with session states
+- [x] Firestore integration for saving workouts
+- [x] Error handling for edge cases
+
+**Features Implemented:**
+- [x] Tap-in: Start exercise session
+- [x] Session active UI with elapsed time
+- [x] Tap-out: Complete session and save to Firestore
+- [x] Match session ID from tap-in with tap-out data
+- [x] Extract and save sets/reps from NFC payload
+- [x] Workout grouping (multiple exercises per workout)
+- [x] Continue workout functionality
+- [x] Active workout ID tracking
+
+**Testing:**
+- [x] Full tap-in/tap-out flow with real device
+- [x] Session persists across app restart
+- [x] Data saved correctly to Firestore
+- [x] Error handling when session not found
+
+**Key Achievements:**
+- Implemented workout grouping system (stores/workout.ts)
+- Created Continue Workout screen with active exercise list
+- Added automatic workout creation and exercise grouping
+- Session persistence with AsyncStorage hydration
+
 ---
 
 ## In Progress
 
-### 📋 Phase 3: Core Workout Flow (Next)
-**Goal:** Implement complete tap-in/tap-out workout tracking
-
-**Components to Build:**
-- [ ] Active session store (Zustand + AsyncStorage)
-- [ ] Workout service (session management logic)
-- [ ] Update home screen with session states
-- [ ] Firestore integration for saving workouts
-- [ ] Error handling for edge cases
-
-**Features:**
-- [ ] Tap-in: Start exercise session
-- [ ] Session active UI with elapsed time
-- [ ] Tap-out: Complete session and save to Firestore
-- [ ] Match session ID from tap-in with tap-out data
-- [ ] Extract and save sets/reps from NFC payload
-
-**Testing:**
-- [ ] Full tap-in/tap-out flow with real device
-- [ ] Session persists across app restart
-- [ ] Data saved correctly to Firestore
-- [ ] Error handling when session not found
-
-**Documentation:** See [phase-3-plan.md](./phase-3-plan.md) for detailed implementation steps
+No active development phase currently in progress.
 
 ---
 
@@ -215,10 +224,12 @@
 ### Features
 - [x] User authentication
 - [x] NFC scanning
-- [ ] Tap-in/tap-out workflow
-- [ ] Save workouts to Firestore
-- [ ] View active session
-- [ ] Basic error handling
+- [x] Tap-in/tap-out workflow
+- [x] Save workouts to Firestore
+- [x] View active session
+- [x] Workout grouping
+- [x] Continue workout functionality
+- [x] Basic error handling
 
 ### Polish
 - [ ] App icon and splash screen
@@ -267,9 +278,9 @@
 6. **Plugin configuration for NFC** - Critical for iOS NFC to work
 
 ### Decisions Pending
-- Workout grouping strategy (single workout vs. multiple exercises)
 - Data retention policy (how long to keep old workouts)
 - Pricing model (free vs. paid features)
+- Advanced analytics features for MVP vs. post-MVP
 
 ---
 
@@ -278,7 +289,6 @@
 - [Architecture Overview](./architecture.md)
 - [NFC Payload Structure](./nfc-payload-structure.md)
 - [Workflow Logic](./workflow-logic.md)
-- [Phase 3 Plan](./phase-3-plan.md)
 
 ---
 
@@ -290,5 +300,5 @@ This is currently a solo project. For questions or collaboration:
 
 ---
 
-**Last Updated:** November 9, 2025
-**Next Review:** After Phase 3 completion
+**Last Updated:** November 17, 2025
+**Next Review:** Before MVP Release

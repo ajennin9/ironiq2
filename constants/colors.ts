@@ -10,6 +10,7 @@ export default {
   // Accent colors
   green: '#10B981',          // Success, active sessions
   orange: '#FF6B35',         // Warnings
+  gold: '#F0D791',           // Golden accent for highlights and borders
   blue: '#3B82F6',           // Info, links
   red: '#EF4444',            // Errors, danger actions
 
