@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, Image, Ani
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import Fonts from '@/constants/fonts';
 import { nfcService } from '@/services/nfc';
@@ -11,6 +12,7 @@ import { CompactNFCPayload, ExerciseSession } from '@/types/workout';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [isScanning, setIsScanning] = useState(false);
   const [nfcAvailable, setNfcAvailable] = useState(false);
   const [scanningDots, setScanningDots] = useState('');
@@ -23,8 +25,18 @@ export default function HomeScreen() {
   const activeWorkoutId = useWorkoutStore(state => state.activeWorkoutId);
   const initialize = useWorkoutStore(state => state.initialize);
 
+  // Notification state
+  const [notification, setNotification] = useState<{
+    visible: boolean;
+    type: 'started' | 'saved' | null;
+    machineName: string;
+  }>({ visible: false, type: null, machineName: '' });
+
   // Animation for glow effect
   const glowAnim = useRef(new Animated.Value(0)).current;
+
+  // Animation for notification slide-out
+  const notificationSlideAnim = useRef(new Animated.Value(0)).current;
 
   // Initialize NFC and workout store on mount
   useEffect(() => {
@@ -122,6 +134,31 @@ export default function HomeScreen() {
     }
   }, [activeWorkoutId, activeSession]);
 
+  // Auto-dismiss notification after 3 seconds with slide-out animation
+  useEffect(() => {
+    if (notification.visible) {
+      const timer = setTimeout(() => {
+        // Slide out animation (200ms)
+        Animated.timing(notificationSlideAnim, {
+          toValue: -100, // Slide up and out
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          // Reset state after animation completes
+          setNotification({ visible: false, type: null, machineName: '' });
+          notificationSlideAnim.setValue(0);
+        });
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [notification.visible]);
+
+  const showNotification = (type: 'started' | 'saved', machineName: string) => {
+    setNotification({ visible: true, type, machineName });
+    notificationSlideAnim.setValue(0); // Reset animation
+  };
+
   const initializeNFC = async () => {
     const initialized = await nfcService.initialize();
     if (initialized) {
@@ -155,7 +192,8 @@ export default function HomeScreen() {
         // Tap-out flow
         try {
           await workoutService.completeSession(payload);
-          // No alert - automatically show continue workout state
+          // Show "Exercise Saved!" notification
+          showNotification('saved', activeSession.machineType);
         } catch (error: any) {
           if (error.message.includes('not found')) {
             // Extract all session IDs from payload for debugging
@@ -177,6 +215,10 @@ export default function HomeScreen() {
       } else {
         // Tap-in flow
         await workoutService.startSession(payload);
+        // Show "Exercise Started!" notification
+        // Get machine type from payload
+        const machineName = payload.m || 'Exercise';
+        showNotification('started', machineName);
       }
     } catch (error: any) {
       // Don't show alert for user cancellation
@@ -259,6 +301,38 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Notification Toast */}
+      {notification.visible && (
+        <Animated.View
+          style={[
+            styles.notification,
+            notification.type === 'started' ? styles.notificationStarted : styles.notificationSaved,
+            {
+              top: insets.top + 76, // Safe area top + top bar height (60) + 16px spacing
+              transform: [{ translateY: notificationSlideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.notificationIconContainer}>
+            <Ionicons
+              name={notification.type === 'started' ? 'play-outline' : 'checkmark-outline'}
+              size={35}
+              color={notification.type === 'started' ? Colors.gold : Colors.green}
+            />
+          </View>
+          <View style={styles.notificationContent}>
+            <Text style={styles.notificationTitle}>
+              {notification.type === 'started' ? 'Exercise Started!' : 'Exercise Saved!'}
+            </Text>
+            <Text style={styles.notificationSubtitle}>
+              {notification.type === 'started'
+                ? `${notification.machineName} has started. exercise time...`
+                : `${notification.machineName} session added to your workout`}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Main Content */}
       <ScrollView
         style={styles.content}
@@ -334,12 +408,12 @@ export default function HomeScreen() {
             ) : (
               // First-time user - show star icon and message
               <View style={styles.firstTimeCard}>
-                <Ionicons name="star" size={64} color="#FFD700" />
+                <Ionicons name="star-outline" size={101} color={Colors.gold} />
                 <Text style={styles.firstTimeText}>
                   First time on this machine!
                 </Text>
                 <Text style={styles.firstTimeSubtext}>
-                  Your workout data will be saved{'\n'}when you tap to complete.
+                  This is your first workout on this machine. Get to working out!{'\n\n'}Tap the button at the top of your screen when you're done with this exercise.
                 </Text>
               </View>
             )}
@@ -355,12 +429,12 @@ export default function HomeScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.startNextContent}>
-                <View>
+                <View style={styles.startNextTextContainer}>
                   <Text style={styles.startNextTitle}>Start Next Exercise</Text>
                   <Text style={styles.startNextSubtitle}>Tap to start your next exercise</Text>
                 </View>
-                <View style={styles.dumbbellIconContainer}>
-                  <Ionicons name="barbell" size={40} color={Colors.surface} />
+                <View style={styles.startNextIconContainer}>
+                  <Ionicons name="barbell" size={32} color={Colors.surface} />
                 </View>
               </View>
             </TouchableOpacity>
@@ -375,10 +449,12 @@ export default function HomeScreen() {
                 <View style={styles.manualEntryTextContainer}>
                   <Text style={styles.manualEntryTitle}>Manual Entry</Text>
                   <Text style={styles.manualEntrySubtitle}>
-                    Record an exercise that doesn't{'\n'}use a smart machine.
+                    Record an exercise that doesn't use a smart machine.
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={24} color={Colors.text} />
+                <View style={styles.manualEntryIconContainer}>
+                  <Ionicons name="pencil-outline" size={28} color={Colors.surface} />
+                </View>
               </View>
             </TouchableOpacity>
 
@@ -402,21 +478,15 @@ export default function HomeScreen() {
                     </Text>
                   </View>
 
-                  <View style={styles.workoutStatsRow}>
-                    <View style={styles.workoutStat}>
-                      <Text style={styles.workoutStatValue}>{exercise.sets.length}</Text>
-                      <Text style={styles.workoutStatLabel}>Sets</Text>
-                    </View>
-
-                    <View style={styles.workoutStat}>
-                      <Text style={styles.workoutStatValue}>{getTotalReps(exercise.sets)}</Text>
-                      <Text style={styles.workoutStatLabel}>Total Reps</Text>
-                    </View>
-
-                    <View style={styles.workoutStat}>
-                      <Text style={styles.workoutStatValue}>{getMaxWeight(exercise.sets)}</Text>
-                      <Text style={styles.workoutStatLabel}>Max Weight</Text>
-                    </View>
+                  <View style={styles.workoutExerciseSets}>
+                    {exercise.sets.map((set: any, index: number) => (
+                      <View key={index} style={styles.workoutExerciseSetRow}>
+                        <Text style={styles.workoutExerciseSetLabel}>Set {index + 1}</Text>
+                        <Text style={styles.workoutExerciseSetValue}>
+                          {set.reps} reps x {set.weightLbs} lbs
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
               ))
@@ -428,8 +498,12 @@ export default function HomeScreen() {
               onPress={handleCompleteWorkout}
               activeOpacity={0.7}
             >
-              <Text style={styles.finishWorkoutText}>Complete Workout</Text>
-              <Ionicons name="checkmark-circle" size={32} color={Colors.surface} />
+              <View style={styles.finishWorkoutContent}>
+                <Text style={styles.finishWorkoutText}>Complete Workout</Text>
+                <View style={styles.finishWorkoutIconContainer}>
+                  <Ionicons name="checkmark-circle" size={35} color={Colors.surface} />
+                </View>
+              </View>
             </TouchableOpacity>
           </>
         ) : (
@@ -543,6 +617,54 @@ const styles = StyleSheet.create({
   profileButton: {
     padding: 4,
   },
+  // Notification Toast
+  notification: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 8,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  notificationStarted: {
+    backgroundColor: Colors.gold,
+  },
+  notificationSaved: {
+    backgroundColor: Colors.green,
+  },
+  notificationIconContainer: {
+    width: 59,
+    height: 59,
+    borderRadius: 100,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  notificationTitle: {
+    fontSize: 24,
+    fontFamily: Fonts.bold,
+    color: Colors.surface,
+  },
+  notificationSubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    color: Colors.surface,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 16,
@@ -649,9 +771,11 @@ const styles = StyleSheet.create({
   },
   manualEntryButton: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 16,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    height: 75,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 1,
@@ -665,21 +789,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   manualEntryTextContainer: {
     flex: 1,
+    paddingLeft: 16,
+    justifyContent: 'center',
   },
   manualEntryTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontFamily: Fonts.bold,
-    color: Colors.text,
-    marginBottom: 4,
+    color: Colors.navIconInactive,
   },
   manualEntrySubtitle: {
     fontSize: 14,
     fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
-    lineHeight: 20,
+    color: Colors.navIconInactive,
+  },
+  manualEntryIconContainer: {
+    width: 59,
+    height: 59,
+    borderRadius: 100,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // EXISTING DESIGN - Active session state
   text: {
@@ -868,13 +1003,13 @@ const styles = StyleSheet.create({
   },
   firstTimeCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 40,
+    borderRadius: 24,
+    padding: 16,
     width: '100%',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
-      width: 1,
+      width: 0,
       height: 1,
     },
     shadowOpacity: 0.05,
@@ -887,63 +1022,70 @@ const styles = StyleSheet.create({
     color: Colors.text,
     textAlign: 'center',
     marginTop: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   firstTimeSubtext: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
+    color: Colors.navBackground,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 24,
   },
   // Continue Workout state
   startNextButton: {
-    backgroundColor: '#00D46A',
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 16,
+    backgroundColor: Colors.text, // Black background
+    borderRadius: 100,
     borderWidth: 3,
-    borderColor: '#00FF7F',
+    borderColor: Colors.green,
+    height: 75,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
-      width: 0,
-      height: 4,
+      width: 1,
+      height: 1,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   startNextContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  startNextTextContainer: {
+    flex: 1,
+    paddingLeft: 16,
+    justifyContent: 'center',
   },
   startNextTitle: {
     fontSize: 24,
     fontFamily: Fonts.bold,
-    color: Colors.surface,
-    marginBottom: 4,
+    color: Colors.green,
   },
   startNextSubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: Fonts.regular,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: Colors.navIconInactive,
   },
-  dumbbellIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  startNextIconContainer: {
+    width: 59,
+    height: 59,
+    borderRadius: 100,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   workoutDivider: {
     height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 24,
+    backgroundColor: Colors.primary, // Purple divider
+    marginVertical: 16,
   },
   currentWorkoutTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: Fonts.bold,
     color: Colors.text,
     marginBottom: 16,
@@ -965,12 +1107,12 @@ const styles = StyleSheet.create({
   },
   workoutExerciseCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
-      width: 1,
+      width: 0,
       height: 1,
     },
     shadowOpacity: 0.05,
@@ -980,42 +1122,75 @@ const styles = StyleSheet.create({
   workoutExerciseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginBottom: 16,
   },
   workoutExerciseName: {
     fontSize: 24,
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.regular,
     color: Colors.text,
     textTransform: 'capitalize',
   },
   workoutExerciseDuration: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.navIconInactive,
+  },
+  workoutExerciseSets: {
+    width: '100%',
+  },
+  workoutExerciseSetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  workoutExerciseSetLabel: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: Colors.text,
+  },
+  workoutExerciseSetValue: {
     fontSize: 14,
     fontFamily: Fonts.regular,
-    color: Colors.textSecondary,
+    color: Colors.navIconInactive,
   },
   finishWorkoutButton: {
-    backgroundColor: '#00D46A',
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 24,
+    backgroundColor: Colors.surface,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: Colors.green,
+    height: 75,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 1,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  finishWorkoutContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 3,
-    borderColor: '#00FF7F',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    height: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   finishWorkoutText: {
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: Fonts.bold,
-    color: Colors.surface,
+    color: Colors.navIconInactive,
+    paddingLeft: 8,
+  },
+  finishWorkoutIconContainer: {
+    width: 59,
+    height: 59,
+    borderRadius: 100,
+    backgroundColor: Colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
