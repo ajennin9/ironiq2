@@ -135,7 +135,7 @@ class WorkoutService {
   /**
    * Complete the active workout
    */
-  async completeWorkout(): Promise<void> {
+  async completeWorkout(name?: string, notes?: string): Promise<void> {
     const userId = useAuthStore.getState().user?.userId;
     const activeWorkoutId = useWorkoutStore.getState().activeWorkoutId;
 
@@ -149,12 +149,38 @@ class WorkoutService {
 
     const workoutRef = doc(db, 'users', userId, 'workouts', activeWorkoutId);
     await setDoc(workoutRef, {
+      name,
+      notes,
       endedAt: Timestamp.fromDate(new Date()),
       status: 'completed',
     }, { merge: true });
 
     // Clear from store
     await useWorkoutStore.getState().clearActiveWorkoutId();
+  }
+
+  /**
+   * Delete a workout and all its exercise sessions
+   */
+  async deleteWorkout(workoutId: string): Promise<void> {
+    const userId = useAuthStore.getState().user?.userId;
+
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+
+    // Delete all exercise sessions for this workout
+    const exercises = await this.getExercisesForWorkout(workoutId);
+    const deletePromises = exercises.map(exercise => {
+      const sessionRef = doc(db, 'users', userId, 'exerciseSessions', exercise.sessionId);
+      return setDoc(sessionRef, { deleted: true }, { merge: true });
+    });
+
+    await Promise.all(deletePromises);
+
+    // Delete the workout document
+    const workoutRef = doc(db, 'users', userId, 'workouts', workoutId);
+    await setDoc(workoutRef, { deleted: true }, { merge: true });
   }
 
   /**

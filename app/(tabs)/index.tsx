@@ -284,8 +284,7 @@ export default function HomeScreen() {
   };
 
   const handleCompleteWorkout = () => {
-    // TODO: Navigate to workout summary screen
-    Alert.alert('Complete Workout', 'Workout summary screen coming soon!');
+    router.push('/complete-workout');
   };
 
   return (

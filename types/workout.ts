@@ -30,6 +30,8 @@ export interface ExerciseSession {
 export interface Workout {
   workoutId: string;
   userId: string;
+  name?: string; // User-defined workout name
+  notes?: string; // User notes about the workout
   startedAt: string;
   endedAt?: string;
   status: 'in-progress' | 'completed';
